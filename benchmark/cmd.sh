@@ -1,0 +1,1 @@
+go test -benchmem -bench=".*$1.*"
