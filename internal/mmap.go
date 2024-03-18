@@ -40,3 +40,18 @@ func MemFreeMunmap(addr uintptr, offset uintptr) error {
 	}
 	return nil
 }
+
+func MemFreeMunmapG[T any](addr uintptr, len int) error {
+	var t T
+	offset := uintptr(len) * unsafe.Sizeof(t)
+	_, _, errno := syscall.Syscall(
+		syscall.SYS_MUNMAP,
+		addr,
+		offset,
+		0,
+	)
+	if errno != 0 {
+		return errno
+	}
+	return nil
+}

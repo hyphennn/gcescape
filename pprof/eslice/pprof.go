@@ -15,8 +15,11 @@ func main() {
 		http.ListenAndServe("0.0.0.0:8080", nil)
 	}()
 	time.Sleep(time.Second)
-	UseESlice()
+	//UseESlice()
 	//UseNormalSlice()
 	//UseNormalPtrSlice()
+
+	//UseObject()
+	UseEObject()
 	time.Sleep(1000 * time.Second)
 }

@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/hyphennn/gcescape/eobject"
 	"github.com/hyphennn/gcescape/eslice"
 )
 
@@ -121,6 +122,38 @@ func UseNormalPtrSlice() {
 			Value6: 0,
 			Value7: 0,
 		})
+	}
+
+	for i := 0; i < 10; i++ {
+		st := time.Now()
+		runtime.GC()
+		fmt.Printf("GC took %s\n", time.Since(st))
+		time.Sleep(time.Second)
+	}
+
+	runtime.KeepAlive(s)
+}
+
+func UseObject() {
+	s := [10000000]*TestType{}
+	for i := 0; i < 10000000; i++ {
+		s[i] = new(TestType)
+	}
+
+	for i := 0; i < 10; i++ {
+		st := time.Now()
+		runtime.GC()
+		fmt.Printf("GC took %s\n", time.Since(st))
+		time.Sleep(time.Second)
+	}
+
+	runtime.KeepAlive(s)
+}
+
+func UseEObject() {
+	s := [10000000]eobject.EObject[TestType]{}
+	for i := 0; i < 10000000; i++ {
+		s[i] = eobject.MakeEObject[TestType]()
 	}
 
 	for i := 0; i < 10; i++ {
