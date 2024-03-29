@@ -55,59 +55,62 @@ func MakeESlice[T any](args ...int) *ESlice[T] {
 	}
 }
 
-func (e *ESlice[T]) Len() int {
-	return e.len
+func (s *ESlice[T]) Len() int {
+	return s.len
 }
 
-func (e *ESlice[T]) Cap() int {
-	return e.cap
+func (s *ESlice[T]) Cap() int {
+	return s.cap
 }
 
-func (e *ESlice[T]) Get(i int) T {
-	if i >= e.len {
+func (s *ESlice[T]) Get(i int) T {
+	if i >= s.len {
 		panic("out of range for eslice")
 	}
-	return e.get(i)
+	return s.get(i)
 }
 
-func (e *ESlice[T]) get(i int) T {
-	addr := e.data + uintptr(i)*e.size
+func (s *ESlice[T]) get(i int) T {
+	addr := s.data + uintptr(i)*s.size
 	return *(*T)(unsafe.Pointer(addr))
 }
 
-func (e *ESlice[T]) Set(i int, t T) {
-	if i >= e.len {
+func (s *ESlice[T]) Set(i int, t T) {
+	if i >= s.len {
 		panic("out of range for eslice")
 	}
-	e.set(i, t)
+	s.set(i, t)
 }
 
-func (e *ESlice[T]) set(i int, t T) {
-	addr := e.data + uintptr(i)*e.size
+func (s *ESlice[T]) set(i int, t T) {
+	addr := s.data + uintptr(i)*s.size
 	p := (*T)(unsafe.Pointer(addr))
 	*p = t
 }
 
-func (e *ESlice[T]) Free() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	err := internal.MemFreeMunmap(e.data, e.offset)
+func (s *ESlice[T]) Free() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.freed {
+		return
+	}
+	err := internal.MemFreeMunmap(s.data, s.offset)
 	if err != nil {
 		panic("free eslice failed: " + err.Error())
 	}
-	e.freed = true
+	s.freed = true
 }
 
-func (e *ESlice[T]) IsDangling() bool {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	return e.freed
+func (s *ESlice[T]) IsDangling() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.freed
 }
 
 // 如果不做此检查，则出现悬垂指针时会直接 fatal error
 // todo 是否有必要做检查？还是交给用户？
-func (e *ESlice[T]) checkDangling() {
-	if e.IsDangling() {
+func (s *ESlice[T]) checkDangling() {
+	if s.IsDangling() {
 		panic("dangling eslice")
 	}
 }
@@ -148,10 +151,21 @@ func scale[T any](e *ESlice[T], aim int) *ESlice[T] {
 }
 
 func realScale[T any](e *ESlice[T], aim int) *ESlice[T] {
-	e1 := MakeESlice[T](aim)
-	for i := 0; i < e.len; i++ {
-		e1.set(i, e.get(i))
+	e.mu.Lock()
+	e.freed = true
+	e.mu.Unlock()
+
+	ndata, offset, err := internal.ScaleG[T](e.data, e.cap, aim, nil)
+	if err != nil {
+		panic("scale e slice failed: " + err.Error())
 	}
-	e.Free()
-	return e1
+	return &ESlice[T]{
+		data:   ndata,
+		offset: offset,
+		size:   e.size,
+		len:    e.len,
+		cap:    aim,
+		freed:  false,
+		mu:     sync.Mutex{},
+	}
 }

@@ -6,6 +6,8 @@ have, the more gc pause time you save
 
 As the arena proposal is delayed, I think it's necessary to have a self-made gc escape collection.
 
+Limited by my time, this repo still has lots of things to do, even the ut need to be enriched.
+
 ## how to use?
 
 ```shell

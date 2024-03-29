@@ -55,3 +55,29 @@ func MemFreeMunmapG[T any](addr uintptr, len int) error {
 	}
 	return nil
 }
+
+// ScaleG sw不为空则会在释放原有内存前将sw的内容更改为新内存起点
+func ScaleG[T any](data uintptr, old, new int, sw *uintptr) (uintptr, uintptr, error) {
+	var t T
+	size := unsafe.Sizeof(t)
+
+	ndata, offset, err := MemAllocMmap[T](new)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for i := 0; i < old; i++ {
+		*((*T)(unsafe.Pointer(ndata + uintptr(i)*size))) = *(*T)(unsafe.Pointer(data + uintptr(i)*size))
+	}
+
+	if sw != nil {
+		*sw = ndata
+	}
+
+	err = MemFreeMunmapG[T](data, old)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return ndata, offset, err
+}
