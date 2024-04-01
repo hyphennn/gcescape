@@ -53,7 +53,7 @@ func newBpool(c int) *bpool {
 	}
 }
 
-func (b *bpool) get() *bucket {
+func (b *bpool) get() uintptr {
 	if b.u.empty() {
 		// 没有未使用空间
 		if b.len == b.cap {
@@ -64,9 +64,9 @@ func (b *bpool) get() *bucket {
 		}
 		p := b.data + b.size*uintptr(b.len)
 		b.len++
-		return (*bucket)(unsafe.Pointer(p))
+		return p
 	}
-	return (*bucket)(unsafe.Pointer(uintptr(b.u.pop())))
+	return uintptr(b.u.pop())
 }
 
 func (b *bpool) scale() {
@@ -111,4 +111,9 @@ func (s *stk) pop() int {
 
 func (s *stk) empty() bool {
 	return s.t == 0
+}
+
+//go:nosplit
+func add(p uintptr, x uintptr) unsafe.Pointer {
+	return unsafe.Pointer(p + x)
 }
