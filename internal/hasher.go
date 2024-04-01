@@ -17,6 +17,13 @@ func GetRuntimeHasher[K comparable]() (h Hasher, seed uintptr) {
 	return
 }
 
+func Tophash(hash uintptr) uintptr {
+	top := hash >> (PtrSize*8 - 24)
+	return top
+}
+
+const PtrSize = 4 << (^uintptr(0) >> 63)
+
 type mapiface struct {
 	typ *maptype
 	val *hmap
