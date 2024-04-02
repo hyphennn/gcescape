@@ -5,28 +5,62 @@
 package internal
 
 import (
+	"hash/maphash"
+	"reflect"
 	"unsafe"
 )
 
 type Hasher func(unsafe.Pointer, uintptr) uintptr
 
 func GetRuntimeHasher[K comparable]() (h Hasher, seed uintptr) {
-	a := any(make(map[K]struct{}))
-	i := (*mapiface)(unsafe.Pointer(&a))
-	h, seed = i.typ.hasher, uintptr(i.val.hash0)
-	return
+	switch reflect.TypeFor[K]().Kind() {
+	case reflect.String:
+		h = stringHasher(maphash.MakeSeed())
+		seed = 0
+		return
+	default:
+		a := any(make(map[K]struct{}))
+		i := (*mapiface)(unsafe.Pointer(&a))
+		h, seed = i.typ.hasher, uintptr(i.val.hash0)
+		return
+	}
 }
 
-func Tophash(hash uintptr) uintptr {
-	top := hash >> (PtrSize*8 - 24)
-	return top
+func stringHasher(s maphash.Seed) Hasher {
+	return func(pointer unsafe.Pointer, u uintptr) uintptr {
+		ss := *(*string)(pointer)
+		return uintptr(maphash.String(s, ss))
+	}
 }
-func Lowhash(hash uintptr) uintptr {
-	low := hash & (1 << 0xFF)
+
+//func stringStructOf(sp *string) *stringStruct {
+//	return (*stringStruct)(unsafe.Pointer(sp))
+//}
+
+type stringStruct struct {
+	str unsafe.Pointer
+	len int
+}
+
+func Tophash(hash uintptr) uint8 {
+	top := hash >> (PtrSize*8 - 24)
+	return uint8(top)
+}
+func Lowhash(hash uintptr, B uint8) uintptr {
+	low := hash & (1<<B - 1)
 	return low
 }
 
 const PtrSize = 4 << (^uintptr(0) >> 63)
+
+func OverLoadFactor(count int, B uint8) bool {
+	return count > bucketCnt && uintptr(count) > loadFactorNum*(bucketShift(B)/loadFactorDen)
+}
+
+func bucketShift(b uint8) uintptr {
+	// Masking the shift amount allows overflow checks to be elided.
+	return uintptr(1) << (b & (PtrSize*8 - 1))
+}
 
 type mapiface struct {
 	typ *maptype
@@ -121,4 +155,6 @@ const (
 	bucketCnt          = mapbucketcount
 	mapbucketcountbits = 3 // log2 of number of elements in a bucket.
 	mapbucketcount     = 1 << mapbucketcountbits
+	loadFactorNum      = loadFactorDen * bucketCnt * 13 / 16
+	loadFactorDen      = 2
 )

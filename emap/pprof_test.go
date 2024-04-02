@@ -5,6 +5,7 @@
 package emap
 
 import (
+	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -12,9 +13,11 @@ import (
 )
 
 func Test111(t *testing.T) {
-	s := MakeEMap[string, *TestType](10000000)
-	for i := 0; i < 10000000; i++ {
-		s.Set(strconv.Itoa(i), &TestType{
+	c := 10000
+	s := MakeEMap[string, *TestType](c)
+	for i := 0; i < c; i++ {
+		si := strconv.Itoa(i)
+		s.Set(si, &TestType{
 			Str:    "1",
 			Map:    map[string]string{"1": "1"},
 			Value:  0,
@@ -34,17 +37,29 @@ func Test111(t *testing.T) {
 		})
 	}
 
-	os.Remove("cpu.pprof")
-	f, _ := os.OpenFile("cpu.pprof", os.O_CREATE|os.O_RDWR, 0777)
-	defer f.Close()
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	//os.Remove("cpu.pprof")
+	//f, _ := os.OpenFile("cpu.pprof", os.O_CREATE|os.O_RDWR, 0777)
+	//defer f.Close()
+	//pprof.StartCPUProfile(f)
+	//defer pprof.StopCPUProfile()
 
-	for i := 0; i < 10000000; i++ {
-		v, ok := s.Get(strconv.Itoa(i))
-		_ = v
-		_ = ok
+	o, f := 0, 0
+
+	for i := 0; i < c; i++ {
+		//_, ok0 := s.Get(strconv.Itoa(i))
+		//if !ok0 {
+		//	//fmt.Println(123)
+		//}
+		si := strconv.Itoa(i)
+		_, ok := s.Get(si)
+		if ok {
+			o++
+		} else {
+			f++
+		}
 	}
+	fmt.Println(o)
+	fmt.Println(f)
 	//avg, n, m := 0, 0, 0
 	//
 	//fmt.Println(s.len)
@@ -98,8 +113,9 @@ func Test111(t *testing.T) {
 }
 
 func Test222(t *testing.T) {
-	s := make(map[string]*TestType, 10000000)
-	for i := 0; i < 10000000; i++ {
+	c := 1000000
+	s := make(map[string]*TestType, c)
+	for i := 0; i < c; i++ {
 		s[strconv.Itoa(i)] = &TestType{
 			Str:    "1",
 			Map:    map[string]string{"1": "1"},
@@ -126,7 +142,7 @@ func Test222(t *testing.T) {
 	pprof.StartCPUProfile(f)
 	defer pprof.StopCPUProfile()
 
-	for i := 0; i < 10000000; i++ {
+	for i := 0; i < c; i++ {
 		v, ok := s[strconv.Itoa(i)]
 		_ = v
 		_ = ok

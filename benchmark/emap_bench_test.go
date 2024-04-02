@@ -5,7 +5,6 @@
 package benchmark
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/hyphennn/gcescape/emap"
@@ -27,12 +26,12 @@ func BenchmarkMapSet(b *testing.B) {
 	}
 }
 
-const mapGetSize = 1000000
+const mapGetSize = 100000
 
 func BenchmarkEMapGet(b *testing.B) {
-	s := emap.MakeEMap[string, *TestType](mapGetSize)
+	s := emap.MakeEMap[int, *TestType](mapGetSize)
 	for i := 0; i < mapGetSize; i++ {
-		s.Set(strconv.Itoa(i), &TestType{
+		s.Set(i, &TestType{
 			Str:    "1",
 			Map:    map[string]string{"1": "1"},
 			Value:  0,
@@ -53,16 +52,16 @@ func BenchmarkEMapGet(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		v, ok := s.Get(strconv.Itoa(i))
+		v, ok := s.Get(i)
 		_ = v
 		_ = ok
 	}
 }
 
 func BenchmarkMapGet(b *testing.B) {
-	s := make(map[string]*TestType, mapGetSize)
+	s := make(map[int]*TestType, mapGetSize)
 	for i := 0; i < mapGetSize; i++ {
-		s[strconv.Itoa(i)] = &TestType{
+		s[i] = &TestType{
 			Str:    "1",
 			Map:    map[string]string{"1": "1"},
 			Value:  0,
@@ -83,7 +82,7 @@ func BenchmarkMapGet(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		v, ok := s[strconv.Itoa(i)]
+		v, ok := s[i]
 		_ = v
 		_ = ok
 	}
