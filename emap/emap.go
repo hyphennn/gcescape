@@ -19,7 +19,12 @@ func MakeEMap[K comparable, V any](cap int) *EMap[K, V] {
 	if err != nil {
 		panic("make emap failed: " + err.Error())
 	}
-	h, s := internal.GetRuntimeHasher[K]()
+
+	b := uint8(0)
+	for internal.OverLoadFactor(cap, b) {
+		b++
+	}
+
 	var it item[K, V]
 	return &EMap[K, V]{
 		data:   data,
@@ -33,12 +38,10 @@ func MakeEMap[K comparable, V any](cap int) *EMap[K, V] {
 			t: 0,
 		},
 		// 常数可以调整
-		m:      make(map[uintptr]*bucket, cap/8),
-		p:      newBpool(cap / 2),
-		hasher: h,
-		seed:   s,
-		freed:  false,
-		mu:     sync.Mutex{},
+		m: make(map[K]int, cap),
+
+		freed: false,
+		mu:    sync.Mutex{},
 	}
 }
 
@@ -51,11 +54,7 @@ type EMap[K comparable, V any] struct {
 
 	u *stk
 
-	m map[uintptr]*bucket
-	p *bpool
-
-	hasher internal.Hasher
-	seed   uintptr
+	m map[K]int
 
 	freed bool
 	mu    sync.Mutex
@@ -63,56 +62,15 @@ type EMap[K comparable, V any] struct {
 
 func (m *EMap[K, V]) Set(k K, v V) {
 	// 查找是否存在，存在则直接更新 v
-	h := m.hasher(unsafe.Pointer(&k), m.seed)
-	b, ok := m.m[h]
+	i, ok := m.m[k]
 	if !ok {
 		// 直接新增
-		b = m.p.get()
 		p := m.findUnusedDataSet(k, v)
-		b[0] = p
-		m.m[h] = b
+		m.m[k] = p
 		return
 	}
-	i := 0
-	// first empty bucket index
-	var feb *bucket
-	var febi int
-	for {
-		for i = 0; i < 8; i++ {
-			if b[i] == -1 {
-				if feb == nil {
-					feb = b
-					febi = i
-				}
-				continue
-			}
-			it := (*item[K, V])(unsafe.Pointer(m.geti(b[i])))
-			if it.k == k {
-				// 找到目标，直接更新 v
-				it.v = v
-				return
-			}
-		}
-		// 当前桶未找到
-		if b[8] == 0 {
-			// 没有下一个桶，说明所有桶中均未找到，并且当前桶满
-			if feb != nil {
-				// 前面的 bucket 存在可重用的空位
-				goto reuse
-			}
-			nb := m.p.get()
-			nb[0] = m.findUnusedDataSet(k, v)
-			b[8] = int(uintptr(unsafe.Pointer(nb)))
-			return
-		} else {
-			// 有下一个桶
-			b = (*bucket)(unsafe.Pointer(uintptr(b[8])))
-			continue
-		}
-	}
-reuse:
-	// 未找到，且当前桶不为空
-	feb[febi] = m.findUnusedDataSet(k, v)
+	p := (*V)(unsafe.Pointer(m.geti(i)))
+	*p = v
 	return
 }
 
@@ -156,78 +114,31 @@ func (m *EMap[K, V]) realScale(aim int) {
 }
 
 func (m *EMap[K, V]) Get(k K) (v V, ok bool) {
-	h := m.hasher(unsafe.Pointer(&k), m.seed)
-	b, ok := m.m[h]
+	i, ok := m.m[k]
 	if !ok {
 		return
 	}
-
-	i := 0
-	ok = false
-	for {
-		for i = 0; i < 8; i++ {
-			if b[i] == -1 {
-				continue
-			}
-			it := (*item[K, V])(unsafe.Pointer(m.geti(b[i])))
-			if it.k == k {
-				ok = true
-				v = it.v
-				return
-			}
-		}
-		// 当前桶未找到
-		if b[8] == 0 {
-			return
-		} else {
-			// 有下一个桶
-			b = (*bucket)(unsafe.Pointer(uintptr(b[8])))
-			continue
-		}
-	}
+	v = *(*V)(unsafe.Pointer(m.geti(i)))
+	ok = true
+	return
 }
 
 func (m *EMap[K, V]) geti(i int) uintptr {
 	return m.data + uintptr(i)*m.size
 }
 
+func (m *EMap[K, V]) freei(i int) {
+	m.u.push(i)
+}
+
 func (m *EMap[K, V]) Delete(k K) bool {
-	h := m.hasher(unsafe.Pointer(&k), m.seed)
-	b, ok := m.m[h]
+	i, ok := m.m[k]
 	if !ok {
 		return false
 	}
-	b0 := b
-	i := 0
-	for {
-		for i = 0; i < 8; i++ {
-			if b[i] == -1 {
-				continue
-			}
-			p := m.geti(b[i])
-			it := (*item[K, V])(unsafe.Pointer(p))
-			if it.k == k {
-				// 真实删除逻辑
-				m.u.push(b[i])
-				b[i] = -1
-				if b == b0 && i == 0 {
-					// 此时桶中不再有任何元素
-					m.p.free(uintptr(unsafe.Pointer(b)))
-					delete(m.m, h)
-				}
-				return true
-			}
-		}
-		// 当前桶未找到
-		if b[8] == 0 {
-			// 没有下一个桶
-			return false
-		} else {
-			// 有下一个桶
-			b = (*bucket)(unsafe.Pointer(uintptr(b[8])))
-			continue
-		}
-	}
+	m.freei(i)
+	delete(m.m, k)
+	return true
 }
 
 // Free 只会释放向内核申请的部分，剩余由gc管理
@@ -243,8 +154,6 @@ func (m *EMap[K, V]) Free() {
 	if err != nil {
 		panic("free e map data failed: " + err.Error())
 	}
-
-	m.p.freeAll()
 
 	m.freed = true
 	return

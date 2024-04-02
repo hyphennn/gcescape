@@ -5,6 +5,7 @@
 package eslice
 
 import (
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -65,7 +66,7 @@ func (s *ESlice[T]) Cap() int {
 
 func (s *ESlice[T]) Get(i int) T {
 	if i >= s.len {
-		panic("out of range for eslice")
+		panic("out of range for eslice[" + strconv.Itoa(i) + ":" + strconv.Itoa(s.len) + "]")
 	}
 	return s.get(i)
 }
@@ -77,7 +78,7 @@ func (s *ESlice[T]) get(i int) T {
 
 func (s *ESlice[T]) Set(i int, t T) {
 	if i >= s.len {
-		panic("out of range for eslice")
+		panic("out of range for eslice[" + strconv.Itoa(i) + ":" + strconv.Itoa(s.len) + "]")
 	}
 	s.set(i, t)
 }

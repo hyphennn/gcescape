@@ -19,7 +19,11 @@ type item[K comparable, V any] struct {
 	v V
 }
 
-type bucket [9]int
+type bucket struct {
+	tophash [8]uint8
+	vs      [8]int
+	next    *bucket
+}
 
 type bpool struct {
 	data   uintptr
@@ -54,19 +58,30 @@ func newBpool(c int) *bpool {
 }
 
 func (b *bpool) get() *bucket {
+	var ret *bucket
 	if b.u.empty() {
 		// 没有未使用空间
 		if b.len == b.cap {
 			if b.next == nil {
 				b.scale()
 			}
-			return b.next.get()
+			ret = b.next.get()
+			goto clear
 		}
 		p := b.data + b.size*uintptr(b.len)
 		b.len++
-		return (*bucket)(unsafe.Pointer(p))
+		ret = (*bucket)(unsafe.Pointer(p))
+		goto clear
 	}
-	return (*bucket)(unsafe.Pointer(uintptr(b.u.pop())))
+	ret = (*bucket)(unsafe.Pointer(uintptr(b.u.pop())))
+	goto clear
+clear:
+	for i := 0; i < 8; i++ {
+		ret.tophash[i] = 0
+		ret.vs[i] = 0
+	}
+	ret.next = nil
+	return ret
 }
 
 func (b *bpool) scale() {
