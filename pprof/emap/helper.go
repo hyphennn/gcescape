@@ -11,49 +11,14 @@ import (
 	"time"
 
 	"github.com/hyphennn/gcescape/emap"
+	"github.com/hyphennn/gcescape/internal"
 )
 
-type TestType struct {
-	Str    string
-	Map    map[string]string
-	Value  int
-	Str2   string
-	Str3   string
-	Str4   string
-	Str5   string
-	Str6   string
-	Str7   string
-	Str8   string
-	Value2 int
-	Value3 int
-	Value4 int
-	Value5 int
-	Value6 int
-	Value7 int
-}
-
 func UseEmap() {
-	s := emap.MakeEMap[string, *TestType](2000000)
+	s := emap.MakeEMap[string, *internal.TestType](1000000)
 
 	for i := 0; i < 1000000; i++ {
-		s.Set(strconv.Itoa(i), &TestType{
-			Str:    "1",
-			Map:    map[string]string{"1": "1"},
-			Value:  0,
-			Str2:   "1",
-			Str3:   "1",
-			Str4:   "1",
-			Str5:   "1",
-			Str6:   "1",
-			Str7:   "1",
-			Str8:   "1",
-			Value2: 0,
-			Value3: 0,
-			Value4: 0,
-			Value5: 0,
-			Value6: 0,
-			Value7: 0,
-		})
+		s.Set(strconv.Itoa(i), internal.GenTestType())
 	}
 
 	for i := 0; i < 10; i++ {
@@ -67,27 +32,10 @@ func UseEmap() {
 }
 
 func UseNormalmap() {
-	s := make(map[string]*TestType, 2000000)
+	s := make(map[string]*internal.TestType, 2000000)
 
 	for i := 0; i < 1000000; i++ {
-		s[strconv.Itoa(i)] = &TestType{
-			Str:    "1",
-			Map:    map[string]string{"1": "1"},
-			Value:  0,
-			Str2:   "1",
-			Str3:   "1",
-			Str4:   "1",
-			Str5:   "1",
-			Str6:   "1",
-			Str7:   "1",
-			Str8:   "1",
-			Value2: 0,
-			Value3: 0,
-			Value4: 0,
-			Value5: 0,
-			Value6: 0,
-			Value7: 0,
-		}
+		s[strconv.Itoa(i)] = internal.GenTestType()
 	}
 
 	for i := 0; i < 10; i++ {

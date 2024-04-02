@@ -15,8 +15,8 @@ func main() {
 		http.ListenAndServe("0.0.0.0:8080", nil)
 	}()
 	time.Sleep(time.Second)
-	//UseEmap()
-	UseNormalmap()
+	UseEmap()
+	//UseNormalmap()
 	//UseNormalSlice()
 	//UseNormalPtrSlice()
 
